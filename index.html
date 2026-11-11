@@ -65,7 +65,7 @@ input,textarea{width:100%;background:#0f0a24;color:var(--tx);border:2px solid va
 .pick{cursor:pointer;width:100%;height:auto;aspect-ratio:1}
 .pick.added{opacity:.35}
 .sg{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
-.src{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.src{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;position:sticky;top:0;background:var(--panel);padding:4px 0;z-index:5}
 .src button{background:#0f0a24;padding:8px 14px;border-radius:999px;font-size:15px;font-weight:800}
 .src button.on{background:var(--sun);color:#241b00}
 h3{margin:12px 0 4px;font-size:16px;color:var(--mut)}
@@ -219,14 +219,14 @@ const pickHTML=x=>`<div class="chip pick" data-act="pick" data-n="${esc(x.n)}" d
 async function search(q){
  const r=$('#sr');
  if(bad(q)){r.innerHTML='<p>That search is blocked by the word filter.</p>';return}
- const keys=srcSel==='all'?['wiki','movie','tv','music','anime','char','book']:[srcSel],lim=srcSel==='all'?10:24,lab=Object.fromEntries(SRC);
- const sec=[],seen=new Set();let hid=0,pend=keys.length,fail=0;
- const paint=()=>{const any=sec.some(Boolean);r.innerHTML=sec.join('')+(pend?'<p>Searching…</p>':!any?`<p>${fail?"Couldn't reach the image sources. Check the kiosk's internet connection.":'No pictures found. Try another source or different wording.'}</p>`:'')+(hid&&!pend?`<p>${hid} ${hid==1?'result was':'results were'} hidden by the word filter.</p>`:'')};
+ const keys=srcSel==='all'?['wiki','movie','tv','music','anime','char','book','photo']:[srcSel],lim=srcSel==='all'?12:24,lab=Object.fromEntries(SRC);
+ const sec=[],seen=new Set();let hid=0,pend=keys.length,fail=0,found=0;
+ const paint=()=>{const any=found>0;r.innerHTML=sec.join('')+(pend?'<p>Searching…</p>':!any?`<p>${fail?"Couldn't reach the image sources. Check the kiosk's internet connection.":'No pictures found. Try another source or different wording.'}</p>`:'')+(hid&&!pend?`<p>${hid} ${hid==1?'result was':'results were'} hidden by the word filter.</p>`:'')};
  paint();
  await Promise.all(keys.map(async(k,i)=>{
   try{const ok=(await F[k](q,lim)).filter(x=>{if(!x.n||!x.u||seen.has(x.u))return false;if(bad(x.n)){hid++;return false}seen.add(x.u);return true}).slice(0,lim);
-   if(ok.length)sec[i]=`${srcSel==='all'?`<h3>${lab[k]}</h3>`:''}<div class="grid sg">${ok.map(pickHTML).join('')}</div>`}
-  catch(e){fail++}
+   found+=ok.length;sec[i]=`${srcSel==='all'?`<h3>${lab[k]} (${ok.length})</h3>`:''}${ok.length?`<div class="grid sg">${ok.map(pickHTML).join('')}</div>`:srcSel==='all'?'<p>No results.</p>':''}`}
+  catch(e){fail++;if(srcSel==='all')sec[i]=`<h3>${lab[k]}</h3><p>Couldn't load.</p>`}
   pend--;paint()}))}
 const shrink=f=>new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,320/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.8))};im.onerror=()=>res(null);im.src=r.result};r.readAsDataURL(f)});
 
