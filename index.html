@@ -64,6 +64,12 @@ input,textarea{width:100%;background:#0f0a24;color:var(--tx);border:2px solid va
 .itm input{font-size:15px;padding:6px}
 .pick{cursor:pointer;width:100%;height:auto;aspect-ratio:1}
 .pick.added{opacity:.35}
+.sg{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
+.src{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.src button{background:#0f0a24;padding:8px 14px;border-radius:999px;font-size:15px;font-weight:800}
+.src button.on{background:var(--sun);color:#241b00}
+h3{margin:12px 0 4px;font-size:16px;color:var(--mut)}
+input[type=checkbox]{width:26px;height:26px;flex:none}
 .x{background:#5a1535;border-radius:8px;padding:6px 12px}
 .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:2vw;width:min(90%,520px)}
 .keys button{background:var(--panel2);font-size:clamp(28px,6vw,52px);font-weight:800;padding:2.4vh 0;border-radius:18px}
@@ -79,7 +85,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function defaults(){return{title:'Rank It!',pin:'1234',
  tiers:[['S','#ff6b6b'],['A','#ffa94d'],['B','#ffd43b'],['C','#8ce99a'],['D','#74c0fc']].map(([name,color])=>({id:uid(),name,color})),
- items:[['Pizza','🍕'],['Tacos','🌮'],['Sushi','🍣'],['Burgers','🍔'],['Ice cream','🍦'],['Salad','🥗'],['Ramen','🍜'],['Pancakes','🥞']].map(([name,e])=>({id:uid(),name,e})),subs:[]}}
+ items:[['Pizza','🍕'],['Tacos','🌮'],['Sushi','🍣'],['Burgers','🍔'],['Ice cream','🍦'],['Salad','🥗'],['Ramen','🍜'],['Pancakes','🥞']].map(([name,e])=>({id:uid(),name,e})),subs:[],block:[],nofilter:false}}
 let S=(()=>{try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.tiers&&d.items)return d}catch(e){}return defaults()})();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Storage is full. Remove some uploaded images.')}}
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2500)}
@@ -169,13 +175,17 @@ function renderAdmin(){
  app.innerHTML=`<div class="top"><h2>Host settings</h2><button class="btn sun sm" data-act="home">Save and exit</button></div><div class="scroll adm">
  <div class="card"><label>Tier list title</label><input data-f="title" value="${esc(S.title)}"></div>
  <div class="card"><h2>Add options</h2>
-  <label>Search Wikipedia pictures (tap to add)</label><div class="fl"><input id="q" placeholder="e.g. golden retriever, pizza, Mario Kart"><button class="btn sm" data-act="search">Search</button></div>
-  <div class="grid" id="sr"></div>
+  <label>Search pictures (tap a result to add it)</label>
+  <div class="src">${SRC.map(([k,l])=>`<button data-act="src" data-v="${k}" class="${k===srcSel?'on':''}">${l}</button>`).join('')}</div>
+  <div class="fl"><input id="q" placeholder="e.g. Spider-Man, Taylor Swift, Stranger Things"><button class="btn sm" data-act="search">Search</button></div>
+  <div id="sr"></div>
   <label>Paste image links, one per line. Optional name first: Name | https://…</label><textarea id="bulk" rows="4"></textarea><button class="btn alt sm" data-act="bulk" style="margin-top:8px">Import links</button>
   <label>Or upload from this device</label><input type="file" id="up" accept="image/*" multiple>
   <label>Text-only option</label><div class="fl"><input id="tn" placeholder="Name"><input id="te" placeholder="Emoji (optional)" style="max-width:150px"><button class="btn alt sm" data-act="addtext">Add</button></div></div>
  <div class="card"><h2>Options (<span id="cnt"></span>)</h2><div class="grid" id="il"></div></div>
  <div class="card"><h2>Tiers (top to bottom)</h2><div id="tl"></div><button class="btn alt sm" data-act="addtier">Add tier</button></div>
+ <div class="card"><h2>Word filter</h2><div class="fl"><input type="checkbox" id="ff" data-f="nofilter" ${S.nofilter?'':'checked'}><label for="ff" style="margin:0;font-size:18px;color:var(--tx)">Hide inappropriate searches and options</label></div>
+  <label>Extra blocked words, one per line (added to the built-in list)</label><textarea data-f="block" rows="3">${esc((S.block||[]).join('\n'))}</textarea></div>
  <div class="card"><h2>Data</h2><p>${S.subs.length} submissions saved on this device.</p><div class="fl" style="flex-wrap:wrap">
   <button class="btn alt sm" data-act="clear">Clear results</button><button class="btn alt sm" data-act="export">Export backup</button>
   <label class="btn alt sm" style="margin:0;color:var(--tx)">Import backup<input type="file" id="imp" accept=".json" hidden></label>
@@ -183,13 +193,41 @@ function renderAdmin(){
  itemsUI();tiersUI()}
 function itemsUI(){$('#cnt').textContent=S.items.length;$('#il').innerHTML=S.items.map(i=>`<div class="itm">${chip(i)}<input data-f="iname" data-id="${i.id}" value="${esc(i.name)}"><button class="x" data-act="deli" data-id="${i.id}">Remove</button></div>`).join('')||'<p>No options yet.</p>'}
 function tiersUI(){$('#tl').innerHTML=S.tiers.map((t,i)=>`<div class="fl"><input type="color" data-f="tcolor" data-id="${t.id}" value="${t.color}"><input data-f="tname" data-id="${t.id}" value="${esc(t.name)}"><button class="btn alt sm" data-act="mv" data-id="${t.id}" data-d="-1" ${i?'':'disabled'}>↑</button><button class="btn alt sm" data-act="mv" data-id="${t.id}" data-d="1" ${i<S.tiers.length-1?'':'disabled'}>↓</button><button class="x" data-act="delt" data-id="${t.id}" ${S.tiers.length>2?'':'disabled'}>✕</button></div>`).join('')}
-function addItem(name,img,e){S.items.push({id:uid(),name:name.trim().slice(0,40)||'Untitled',img,e});save();itemsUI()}
-async function wiki(q){
- const r=$('#sr');r.textContent='Searching…';
- try{const j=await(await fetch('https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrlimit=30&prop=pageimages&piprop=thumbnail&pithumbsize=320&gsrsearch='+encodeURIComponent(q))).json();
-  const p=Object.values(j.query?.pages||{}).filter(x=>x.thumbnail).sort((a,b)=>a.index-b.index);
-  r.innerHTML=p.length?p.map(x=>`<div class="chip pick" data-act="pick" data-n="${esc(x.title)}" data-u="${esc(x.thumbnail.source)}"><img src="${esc(x.thumbnail.source)}" alt="${esc(x.title)}"><b>${esc(x.title)}</b></div>`).join(''):'No pictures found. Try another search.'}
- catch(e){r.textContent="Couldn't reach Wikipedia. Check the kiosk's internet connection."}}
+function addItem(name,img,e){if(bad(name)){toast('Blocked by the word filter');return false}S.items.push({id:uid(),name:name.trim().slice(0,40)||'Untitled',img,e});save();itemsUI();return true}
+const SRC=[['all','Everything'],['wiki','People & general'],['movie','Movies'],['tv','TV shows'],['music','Albums'],['anime','Anime'],['char','Anime characters'],['book','Books'],['photo','Photos']];
+let srcSel='all';
+const BLOCK='fuck fucking fucker motherfucker shit shitty bitch bastard asshole ass cunt dick cock pussy whore slut piss porn porno pornography sex sexy sexual nude nudes nudity naked nsfw hentai erotic erotica xxx fetish bdsm orgasm masturbate masturbation blowjob handjob anal penis vagina boobs tits titties dildo milf onlyfans stripper escort rape rapist molest pedophile paedophile incest lolicon shota gore beheading suicide genocide nazi hitler kkk swastika cocaine heroin meth methamphetamine fentanyl nigger nigga faggot fag retard tranny chink spic kike kys'.split(' ').concat(['self harm','kill yourself','sex tape','sex toy']);
+let rx=null,rxKey='';
+function bad(t){
+ if(S.nofilter)return false;
+ const w=[...BLOCK,...(S.block||[])].filter(Boolean),k=w.join('|');
+ if(k!==rxKey){rxKey=k;rx=new RegExp('\\b(?:'+w.map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/ +/g,'\\s+')).join('|')+')(?:s|es|ed|ing|er|ers)?\\b','i')}
+ const n=String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[013457@$]/g,c=>({0:'o',1:'i',3:'e',4:'a',5:'s',7:'t','@':'a','$':'s'}[c]));
+ return rx.test(n)}
+const J=u=>fetch(u).then(r=>{if(!r.ok)throw 0;return r.json()}),E=encodeURIComponent;
+const wk=(h,q,l,extra)=>J(`https://${h}/w/api.php?action=query&format=json&origin=*&generator=search&gsrlimit=${l}&gsrsearch=${E(q)}&${extra}`).then(j=>Object.values(j.query?.pages||{}).sort((a,b)=>a.index-b.index));
+const F={
+ wiki:async(q,l)=>(await wk('en.wikipedia.org',q,l,'prop=pageimages&piprop=thumbnail&pithumbsize=320')).filter(x=>x.thumbnail).map(x=>({n:x.title,u:x.thumbnail.source})),
+ photo:async(q,l)=>(await wk('commons.wikimedia.org',q,l,'gsrnamespace=6&prop=imageinfo&iiprop=url&iiurlwidth=320')).filter(x=>/\.(jpe?g|png|webp)$/i.test(x.title)&&x.imageinfo?.[0]?.thumburl).map(x=>({n:x.title.replace(/^File:/,'').replace(/\.\w+$/,'').replace(/[_-]+/g,' '),u:x.imageinfo[0].thumburl})),
+ movie:async(q,l)=>(await J(`https://itunes.apple.com/search?media=movie&entity=movie&explicit=No&limit=${l}&term=${E(q)}`)).results.filter(r=>r.artworkUrl100).map(r=>({n:r.trackName,u:r.artworkUrl100.replace('100x100','400x400')})),
+ music:async(q,l)=>(await J(`https://itunes.apple.com/search?media=music&entity=album&explicit=No&limit=${l}&term=${E(q)}`)).results.filter(r=>r.artworkUrl100).map(r=>({n:r.collectionName,u:r.artworkUrl100.replace('100x100','400x400')})),
+ tv:async(q,l)=>(await J('https://api.tvmaze.com/search/shows?q='+E(q))).map(x=>x.show).filter(x=>x.image).slice(0,l).map(x=>({n:x.name,u:x.image.medium.replace('http:','https:')})),
+ anime:async(q,l)=>(await J(`https://api.jikan.moe/v4/anime?sfw=true&limit=${Math.min(l,25)}&q=${E(q)}`)).data.map(a=>({n:a.title_english||a.title,u:a.images.jpg.image_url})),
+ char:async(q,l)=>(await J(`https://api.jikan.moe/v4/characters?limit=${Math.min(l,25)}&q=${E(q)}`)).data.filter(c=>!/questionmark/.test(c.images.jpg.image_url)).map(c=>({n:c.name.includes(', ')?c.name.split(', ').reverse().join(' '):c.name,u:c.images.jpg.image_url})),
+ book:async(q,l)=>(await J(`https://openlibrary.org/search.json?fields=title,cover_i&limit=${l}&q=${E(q)}`)).docs.filter(d=>d.cover_i).map(d=>({n:d.title,u:`https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg`}))};
+const pickHTML=x=>`<div class="chip pick" data-act="pick" data-n="${esc(x.n)}" data-u="${esc(x.u)}"><img src="${esc(x.u)}" alt="${esc(x.n)}" referrerpolicy="no-referrer"><b>${esc(x.n)}</b></div>`;
+async function search(q){
+ const r=$('#sr');
+ if(bad(q)){r.innerHTML='<p>That search is blocked by the word filter.</p>';return}
+ const keys=srcSel==='all'?['wiki','movie','tv','music','anime','char','book']:[srcSel],lim=srcSel==='all'?10:24,lab=Object.fromEntries(SRC);
+ const sec=[],seen=new Set();let hid=0,pend=keys.length,fail=0;
+ const paint=()=>{const any=sec.some(Boolean);r.innerHTML=sec.join('')+(pend?'<p>Searching…</p>':!any?`<p>${fail?"Couldn't reach the image sources. Check the kiosk's internet connection.":'No pictures found. Try another source or different wording.'}</p>`:'')+(hid&&!pend?`<p>${hid} ${hid==1?'result was':'results were'} hidden by the word filter.</p>`:'')};
+ paint();
+ await Promise.all(keys.map(async(k,i)=>{
+  try{const ok=(await F[k](q,lim)).filter(x=>{if(!x.n||!x.u||seen.has(x.u))return false;if(bad(x.n)){hid++;return false}seen.add(x.u);return true}).slice(0,lim);
+   if(ok.length)sec[i]=`${srcSel==='all'?`<h3>${lab[k]}</h3>`:''}<div class="grid sg">${ok.map(pickHTML).join('')}</div>`}
+  catch(e){fail++}
+  pend--;paint()}))}
 const shrink=f=>new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,320/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.8))};im.onerror=()=>res(null);im.src=r.result};r.readAsDataURL(f)});
 
 /* ---------- events ---------- */
@@ -215,8 +253,9 @@ app.addEventListener('click',async e=>{
  case'submit':{const s={t:Date.now(),p:{...sess}};S.subs.push(s);save();last=s;tab='you';V='results';return render()}
  case'admin':pin='';V='pin';return render();
  case'key':{const v=b.dataset.v;if(v==='✕'){V='home';return render()}pin=v==='⌫'?pin.slice(0,-1):pin+v;if(pin===String(S.pin)){V='admin';return render()}if(pin.length>=String(S.pin).length){pin='';toast('Wrong PIN')}return renderPin()}
- case'search':{const q=$('#q').value.trim();if(q)wiki(q);return}
- case'pick':if(!b.classList.contains('added')){addItem(b.dataset.n,b.dataset.u);b.classList.add('added')}return;
+ case'search':{const q=$('#q').value.trim();if(q)search(q);return}
+ case'src':srcSel=b.dataset.v;document.querySelectorAll('.src button').forEach(x=>x.classList.toggle('on',x===b));return;
+ case'pick':if(!b.classList.contains('added')&&addItem(b.dataset.n,b.dataset.u))b.classList.add('added');return;
  case'bulk':{const L=$('#bulk').value.split('\n').map(x=>x.trim()).filter(Boolean);L.forEach(l=>{let n,u;if(l.includes('|'))[n,u]=l.split('|').map(x=>x.trim());else u=l;if(!/^https?:/i.test(u||''))return;if(!n){try{n=decodeURIComponent(new URL(u).pathname.split('/').pop().replace(/\.[a-z0-9]+$/i,'')).replace(/[-_]+/g,' ')}catch(_){n='Image'}}addItem(n,u)});$('#bulk').value='';return}
  case'addtext':{const n=$('#tn').value;if(n.trim()){addItem(n,null,$('#te').value.trim());$('#tn').value=$('#te').value=''}return}
  case'deli':S.items=S.items.filter(i=>i.id!==id);save();return itemsUI();
@@ -233,12 +272,15 @@ app.addEventListener('change',async e=>{
  if(t.id==='up'){for(const f of t.files){const d=await shrink(f);if(d)addItem(f.name.replace(/\.[^.]+$/,'').replace(/[-_]+/g,' '),d)}t.value='';return}
  if(t.id==='imp'){try{const d=JSON.parse(await t.files[0].text());if(!d.tiers||!d.items)throw 0;S=d;S.subs=S.subs||[];S.pin=S.pin||'1234';save();renderAdmin();toast('Backup imported')}catch(_){toast('That file is not a valid backup')}return}
  const f=t.dataset.f;if(!f)return;const id=t.dataset.id;
+ if((f==='title'||f==='iname')&&bad(t.value)){toast('Blocked by the word filter');t.value=f==='title'?S.title:item(id).name;return}
  if(f==='title')S.title=t.value.trim()||'Rank It!';
  if(f==='iname')item(id).name=t.value.trim()||'Untitled';
+ if(f==='nofilter')S.nofilter=!t.checked;
+ if(f==='block')S.block=t.value.split(/[\n,]+/).map(x=>x.trim().toLowerCase()).filter(Boolean);
  if(f==='tname')S.tiers.find(x=>x.id===id).name=t.value.trim()||'?';
  if(f==='tcolor')S.tiers.find(x=>x.id===id).color=t.value;
  save();if(f==='iname')itemsUI()});
-app.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='q')wiki(e.target.value.trim())});
+app.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='q')search(e.target.value.trim())});
 setInterval(()=>{if(['play','results','pin'].includes(V)&&Date.now()-idle>120000){V='home';last=null;render()}},5000);
 render();
 </script></body></html>
