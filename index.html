@@ -76,6 +76,25 @@ input[type=checkbox]{width:26px;height:26px;flex:none}
 .dots{font-size:clamp(34px,8vw,70px);letter-spacing:.3em;height:1.3em}
 .mid{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;text-align:center}
 .toast{position:fixed;left:50%;bottom:6vh;transform:translateX(-50%);background:var(--sun);color:#241b00;padding:12px 22px;border-radius:999px;font-weight:800;z-index:200}
+.tabs{flex-wrap:wrap;gap:1vh 1.2vw}.tabs button{flex:1 1 21%;padding:1.1vh .8vw}
+.bd{position:absolute;top:3px;left:3px;font-style:normal;font-size:10px;font-weight:800;background:#000a;padding:1px 6px;border-radius:6px;z-index:2}
+.dd{flex:1;position:relative;display:flex;height:clamp(24px,3.6vh,36px);border-radius:8px;overflow:hidden}
+.dd u{flex:1;text-decoration:none;font-size:11px;text-align:center;line-height:clamp(24px,3.6vh,36px);color:#fffa;border-right:1px solid #0003}
+.dd s{position:absolute;top:50%;height:4px;margin-top:-2px;background:#fff8}
+.dd i{position:absolute;top:50%;width:clamp(14px,2vh,20px);height:clamp(14px,2vh,20px);border-radius:50%;transform:translate(-50%,-50%);border:2px solid #fff}
+.dd i.y{background:var(--pink);z-index:2}.dd i.c{background:var(--sun);z-index:1}
+.gb{display:flex;align-items:flex-end;gap:2vw;height:clamp(150px,22vh,240px);margin-top:1vh}
+.gb>div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px}
+.gb .pr{display:flex;align-items:flex-end;gap:4px;width:100%;flex:1;justify-content:center}
+.gb .pr i{width:40%;border-radius:6px 6px 0 0;display:block;min-height:3px}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:1.4vh 2vw}
+.fact{background:var(--panel);border-radius:16px;padding:1.6vh 2vw;display:flex;gap:1.5vw;align-items:center;font-size:clamp(14px,2.2vw,22px)}
+.fact p{margin:0;font-size:clamp(12px,1.8vw,18px)}.fact small{color:var(--mut)}
+.kb{display:flex;flex-direction:column;gap:1.2vh;align-items:center;width:100%}
+.kb>div{display:flex;gap:1vw;justify-content:center;width:100%}
+.kb button{background:var(--panel2);font-size:clamp(20px,4.6vw,44px);font-weight:800;width:8.2vw;min-width:32px;height:9vh;border-radius:12px}
+.kb .w{width:13vw}.kb .sp{width:40vw;font-size:clamp(14px,2.4vw,24px)}
+.nm2{font-size:clamp(30px,7vw,72px);font-weight:800;min-height:1.3em;border-bottom:4px solid var(--sun);padding:0 3vw;min-width:60%;text-align:center}
 @media (prefers-reduced-motion:no-preference){.chip{transition:transform .12s}}
 </style></head><body>
 <div id="app"></div>
@@ -86,17 +105,24 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function defaults(){return{title:'Rank It!',pin:'1234',
  tiers:[['S','#ff6b6b'],['A','#ffa94d'],['B','#ffd43b'],['C','#8ce99a'],['D','#74c0fc']].map(([name,color])=>({id:uid(),name,color})),
  items:[['Pizza','🍕'],['Tacos','🌮'],['Sushi','🍣'],['Burgers','🍔'],['Ice cream','🍦'],['Salad','🥗'],['Ramen','🍜'],['Pancakes','🥞']].map(([name,e])=>({id:uid(),name,e})),subs:[],block:[],nofilter:false}}
-let S=(()=>{try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.tiers&&d.items)return d}catch(e){}return defaults()})();
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Storage is full. Remove some uploaded images.')}}
+function hydrate(o){
+ o.block=o.block||[];o.pin=o.pin||'1234';
+ if(!o.presets||!o.presets.length){const id=uid();o.presets=[{id,name:'Main list',data:{title:o.title,tiers:o.tiers,items:o.items,subs:o.subs||[]}}];o.activeId=id}
+ const p=o.presets.find(x=>x.id===o.activeId)||o.presets[0];o.activeId=p.id;p.data.subs=p.data.subs||[];Object.assign(o,p.data);return o}
+function sync(o){const p=o.presets.find(x=>x.id===o.activeId);if(p)p.data={title:o.title,tiers:o.tiers,items:o.items,subs:o.subs}}
+function persist(){sync(S);return{pin:S.pin,block:S.block,nofilter:S.nofilter,askName:S.askName,activeId:S.activeId,presets:S.presets}}
+let S=(()=>{try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&(d.presets||(d.tiers&&d.items)))return hydrate(d)}catch(e){}return hydrate(defaults())})();
+function save(){try{localStorage.setItem(KEY,JSON.stringify(persist()))}catch(e){toast('Storage is full. Remove some uploaded images.')}}
+function loadPreset(id){sync(S);const p=S.presets.find(x=>x.id===id);if(!p)return;S.activeId=id;Object.assign(S,p.data);save();sess={};last=null;h2h=[]}
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2500)}
-let V='home',sess={},sel=null,tab='you',last=null,idle=Date.now(),pin='';
+let pname='',pend=null,h2h=[],V='home',sess={},sel=null,tab='you',last=null,idle=Date.now(),pin='';
 const face=it=>it.img?`<img src="${esc(it.img)}" alt="${esc(it.name)}" referrerpolicy="no-referrer">`:`<span>${esc(it.e||it.name[0]||'?')}</span>`;
 const chip=(it,c='')=>`<div class="chip ${c}" data-id="${it.id}">${face(it)}<b>${esc(it.name)}</b></div>`;
 const item=id=>S.items.find(i=>i.id===id);
 document.addEventListener('error',e=>{const t=e.target;if(t.tagName==='IMG'){const s=document.createElement('span');s.textContent=(t.alt||'?')[0];t.replaceWith(s)}},true);
 
 /* ---------- views ---------- */
-function render(){({home,play:renderPlay,results:renderResults,pin:renderPin,admin:renderAdmin})[V]()}
+function render(){({home,play:renderPlay,results:renderResults,pin:renderPin,admin:renderAdmin,name:renderName})[V]()}
 function home(){
  const n=S.tiers.length,np=S.subs.length;
  app.innerHTML=`<div class="home"><div class="stack">${S.tiers.map((t,i)=>`<i style="background:${t.color};width:${100-i*(50/Math.max(1,n-1))}%">${esc(t.name)}</i>`).join('')}</div>
@@ -124,31 +150,74 @@ function stats(excl){
 const tn=i=>S.tiers[Math.max(0,Math.min(S.tiers.length-1,Math.round(i)))];
 const tag=t=>`<b style="background:${t.color};color:#1b1400;padding:2px 10px;border-radius:8px">${esc(t.name)}</b>`;
 
-function renderResults(){
- const tabs=[...(last?[['you','You vs crowd']]:[]),['crowd','Crowd tiers'],['heat','Heatmap'],['split','Divisive']];
- if(!tabs.some(t=>t[0]===tab))tab=tabs[0][0];
- let body='';
- if(!S.subs.length)body='<div class="card"><p>No results yet.</p></div>';
- else if(tab==='you')body=tabYou();else if(tab==='crowd')body=tabCrowd();else if(tab==='heat')body=tabHeat();else body=tabSplit();
- app.innerHTML=`<div class="top"><h2>${last?'Thanks! Here is how you compare':'What everyone thinks'}</h2><p>${S.subs.length} ${S.subs.length==1?'player':'players'}</p></div>
- <div class="tabs">${tabs.map(([k,l])=>`<button class="${k===tab?'on':''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</div>
- <div class="scroll">${body}</div><div class="bar"><button class="btn" data-act="home">Done</button></div>`}
-
+function renderResults(keep){
+ const T=[...(last?[['you','You vs crowd'],['side','Side by side']]:[]),['crowd','Crowd tiers'],['heat','Heatmap'],['split','Divisive'],['h2h','Head to head'],['players','Players'],['facts','Fun facts']];
+ if(!T.some(t=>t[0]===tab))tab=T[0][0];
+ const y=keep&&$('.scroll')?$('.scroll').scrollTop:0,fn={you:tabYou,side:tabSide,crowd:tabCrowd,heat:tabHeat,split:tabSplit,h2h:tabH2H,players:tabPlayers,facts:tabFacts};
+ app.innerHTML=`<div class="top"><h2>${last?`Thanks${last.name?', '+esc(last.name):''}! Here is how you compare`:'What everyone thinks'}</h2><p>${S.subs.length} ${S.subs.length==1?'player':'players'}</p></div>
+ <div class="tabs">${T.map(([k,l])=>`<button class="${k===tab?'on':''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</div>
+ <div class="scroll">${S.subs.length?fn[tab]():'<div class="card"><p>No results yet.</p></div>'}</div><div class="bar"><button class="btn" data-act="home">Done</button></div>`;
+ if(y)$('.scroll').scrollTop=y}
+function matchOf(s){const st=stats(s),d=st.n-1||1,by={};st.a.forEach(x=>by[x.it.id]=x);let q=0,k=0;for(const id in s.p){const x=by[id],i=st.ix[s.p[id]];if(x&&i!=null){q+=Math.abs(i-x.mean);k++}}return k?100*(1-q/k/d):null}
+const stripes=(l)=>S.tiers.map(t=>`<u style="background:color-mix(in srgb,${t.color} 40%,transparent)">${l?esc(t.name):''}</u>`).join('');
 function tabYou(){
  const o=S.subs.filter(s=>s!==last);
  if(!o.length)return'<div class="card"><h2>You are the first player</h2><p>Your picks are now the crowd. Ask a friend to play and come back to see how you match.</p></div>';
- const st=stats(last),n=st.n,d=n-1||1,rows=st.a.filter(x=>last.p[x.it.id]!=null&&st.ix[last.p[x.it.id]]!=null).map(x=>{const y=st.ix[last.p[x.it.id]];return{x,y,diff:y-x.mean}});
+ const st=stats(last),n=st.n,d=n-1||1,ix=st.ix,rows=st.a.filter(x=>last.p[x.it.id]!=null&&ix[last.p[x.it.id]]!=null).map(x=>{const y=ix[last.p[x.it.id]];return{x,y,diff:y-x.mean}});
  const match=rows.length?100*(1-rows.reduce((q,r)=>q+Math.abs(r.diff),0)/rows.length/d):0;
  const verdict=match>=85?'Mind-meld with the crowd':match>=70?'Basically a local':match>=55?'Pleasantly opinionated':match>=40?'Bold taste':'Certified rebel';
  const C=2*Math.PI*54,hot=[...rows].sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff)).slice(0,3),sure=[...rows].sort((a,b)=>Math.abs(a.diff)-Math.abs(b.diff))[0];
- let twin=null;const ix=st.ix;
- o.forEach(s=>{const sh=Object.keys(last.p).filter(id=>s.p[id]!=null&&ix[s.p[id]]!=null&&ix[last.p[id]]!=null);if(!sh.length)return;const sim=100*(1-sh.reduce((q,id)=>q+Math.abs(ix[s.p[id]]-ix[last.p[id]]),0)/sh.length/d);if(!twin||sim>twin)twin=sim});
+ let twin=null,tw='';
+ o.forEach(s=>{const sh=Object.keys(last.p).filter(id=>s.p[id]!=null&&ix[s.p[id]]!=null&&ix[last.p[id]]!=null);if(!sh.length)return;const sim=100*(1-sh.reduce((q,id)=>q+Math.abs(ix[s.p[id]]-ix[last.p[id]]),0)/sh.length/d);if(twin==null||sim>twin){twin=sim;tw=s.name||''}});
+ const ap=s=>{const v=Object.values(s.p).map(t=>ix[t]).filter(i=>i!=null);return v.length?v.reduce((a,b)=>a+b,0)/v.length/d:null};
+ const mine=ap(last),oth=o.map(ap).filter(v=>v!=null),gen=oth.length&&mine!=null?Math.round(oth.filter(v=>v>mine).length/oth.length*100):null;
+ const style=gen==null?'':gen>=65?'a generous ranker':gen<=35?'a tough ranker':'a balanced ranker';
+ const mc=Array(n).fill(0);rows.forEach(r=>mc[r.y]++);const cc=Array(n).fill(0);st.a.forEach(x=>x.c.forEach((c,i)=>cc[i]+=c));
+ const mt=rows.length||1,ct=cc.reduce((a,b)=>a+b,0)||1,mx=Math.max(...mc.map(v=>v/mt),...cc.map(v=>v/ct),.01);
  return`<div class="card ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="54" fill="none" stroke="#00000050" stroke-width="12"/><circle cx="60" cy="60" r="54" fill="none" stroke="var(--sun)" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C*match/100} ${C}" transform="rotate(-90 60 60)"/></svg>
  <div><div class="n">${Math.round(match)}%</div><h2>${verdict}</h2><p>Match with the crowd</p></div></div>
  <div class="card"><h2>Your hottest takes</h2>${hot.map(r=>`<div class="hot">${chip(r.x.it,'mini')}<div><b>${esc(r.x.it.name)}</b><br>You: ${tag(S.tiers[r.y])} Crowd: ${tag(tn(r.x.mean))}</div></div>`).join('')}
  ${sure?`<p>Most in sync: <b>${esc(sure.x.it.name)}</b></p>`:''}</div>
- ${twin!=null?`<div class="card"><h2>Your closest tier twin</h2><p>Someone who played before you agrees with ${Math.round(twin)}% of your picks.</p></div>`:''}`}
-
+ ${twin!=null?`<div class="card"><h2>Your closest tier twin</h2><p>${esc(tw)||'Another player'} agrees with ${Math.round(twin)}% of your picks.</p></div>`:''}
+ <div class="card"><h2>Your tier mix</h2><p>${gen!=null?`You gave out better tiers than ${gen}% of players. You are ${style}.`:''}</p>
+ <div class="gb">${S.tiers.map((t,i)=>`<div><div class="pr"><i style="height:${mc[i]/mt/mx*100}%;background:var(--pink)"></i><i style="height:${cc[i]/ct/mx*100}%;background:${t.color}"></i></div>${tag(t)}</div>`).join('')}</div>
+ <p><span style="color:var(--pink)">■</span> You &nbsp; <span style="color:var(--sun)">■</span> Crowd average</p></div>`}
+function tabSide(){
+ const o=S.subs.filter(s=>s!==last);if(!o.length)return'<div class="card"><p>You need another player to compare with.</p></div>';
+ const st=stats(last),n=st.n,L=st.a.filter(x=>last.p[x.it.id]!=null&&st.ix[last.p[x.it.id]]!=null).sort((a,b)=>a.mean-b.mean);
+ return`<div class="card"><h2>You vs the crowd, item by item</h2><p><span style="color:var(--pink)">●</span> You &nbsp; <span style="color:var(--sun)">●</span> Crowd average</p>
+ <div class="lb"><span class="nm"></span><div class="dd">${stripes(1)}</div></div>
+ ${L.map(x=>{const y=(st.ix[last.p[x.it.id]]+.5)/n*100,c=(x.mean+.5)/n*100;return`<div class="lb"><span class="nm">${esc(x.it.name)}</span><div class="dd">${stripes(0)}<s style="left:${Math.min(y,c)}%;width:${Math.abs(y-c)}%"></s><i class="y" style="left:${y}%"></i><i class="c" style="left:${c}%"></i></div></div>`}).join('')}</div>`}
+function tabPlayers(){
+ if(S.subs.length<2)return'<div class="card"><p>Play with more people to see the player rankings.</p></div>';
+ const L=S.subs.map(s=>({s,m:matchOf(s)})).filter(x=>x.m!=null).sort((a,b)=>b.m-a.m),who=x=>esc(x.s.name||'Anonymous')+(x.s===last?' (you)':'');
+ const row=x=>`<div class="lb"><span class="nm">${who(x)}</span><div class="t"><i style="width:${x.m}%;background:var(--sun)"></i></div><span class="v">${Math.round(x.m)}%</span></div>`;
+ const st=stats(),tot=Array(st.n).fill(0);st.a.forEach(x=>x.c.forEach((c,i)=>tot[i]+=c));const T=tot.reduce((a,b)=>a+b,0)||1,C=2*Math.PI*40;let off=0;
+ const arcs=tot.map((v,i)=>{const len=v/T*C,el=`<circle cx="50" cy="50" r="40" fill="none" stroke="${S.tiers[i].color}" stroke-width="18" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 50 50)"/>`;off+=len;return el}).join('');
+ return`<div class="card"><h2>Most mainstream</h2>${L.slice(0,5).map(row).join('')}</div>
+ <div class="card"><h2>Biggest rebels</h2>${[...L].reverse().slice(0,5).map(row).join('')}</div>
+ <div class="card ring"><svg viewBox="0 0 100 100">${arcs}</svg><div><h2>Where all ${T} placements went</h2>${S.tiers.map((t,i)=>`<div>${tag(t)} ${Math.round(tot[i]/T*100)}%</div>`).join('')}</div></div>`}
+function tabH2H(){
+ const ids=S.items.map(i=>i.id);h2h=h2h.filter(id=>ids.includes(id));
+ if(h2h.length<2){const a=[...stats().a].sort((x,y)=>x.mean-y.mean);if(a.length>1)h2h=[a[0].it.id,a[a.length-1].it.id]}
+ if(h2h.length<2)return'<div class="card"><p>Not enough results yet.</p></div>';
+ const[A,B]=h2h.map(item),ix={};S.tiers.forEach((t,i)=>ix[t.id]=i);let wa=0,wb=0,tie=0;
+ S.subs.forEach(s=>{const x=ix[s.p[A.id]],y=ix[s.p[B.id]];if(x==null||y==null)return;x<y?wa++:y<x?wb++:tie++});
+ const T=wa+wb+tie||1;
+ return`<div class="card"><h2>Head to head</h2><p>Tap any two options below to pit them against each other.</p>
+ <div class="ring" style="justify-content:space-around;margin:1.5vh 0">${chip(A)}<div class="n" style="font-size:clamp(28px,6vw,56px)">VS</div>${chip(B)}</div>
+ <div class="lb"><div class="t" style="height:clamp(30px,5vh,50px)"><i style="width:${wa/T*100}%;background:var(--pink)"></i><i style="width:${tie/T*100}%;background:#8886"></i><i style="width:${wb/T*100}%;background:var(--sun)"></i></div></div>
+ <p><b>${esc(A.name)}</b> ranked higher by ${wa}, tied ${tie}, <b>${esc(B.name)}</b> ranked higher by ${wb}.</p></div>
+ <div class="card" style="display:flex;flex-wrap:wrap;gap:8px">${S.items.map(i=>`<span data-act="h2h" data-id="${i.id}">${chip(i,h2h.includes(i.id)?'sel':'')}</span>`).join('')}</div>`}
+function tabFacts(){
+ const st=stats(),a=st.a;if(!a.length)return'<div class="card"><p>Nothing to show yet.</p></div>';
+ const by=(f,asc)=>[...a].sort((x,y)=>asc?f(x)-f(y):f(y)-f(x))[0],sc=x=>`Average score ${Math.round(x.score)}`;
+ const F=[['👑 Crowd favorite',by(x=>x.score),sc],['🗑 Least loved',by(x=>x.score,1),sc],['⚡ Most divisive',by(x=>x.sd),x=>`Opinions spread over ${x.sd.toFixed(1)} tiers`],['🤝 Most agreed on',by(x=>x.sd,1),x=>`Mostly landed in ${tn(x.mean).name}`],['🏆 Most top-tier votes',by(x=>x.c[0]),x=>`${x.c[0]} of ${x.k} players`],['💀 Most bottom-tier votes',by(x=>x.c[st.n-1]),x=>`${x.c[st.n-1]} of ${x.k} players`]];
+ let h=F.map(([l,x,t])=>`<div class="fact">${chip(x.it,'mini')}<div><p>${l}</p><b>${esc(x.it.name)}</b><br><small>${t(x)}</small></div></div>`).join('');
+ if(a.length>1&&a.length<=60&&S.subs.length>1){let best=null;for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++){let w=0,l=0;S.subs.forEach(s=>{const p=st.ix[s.p[a[i].it.id]],q=st.ix[s.p[a[j].it.id]];if(p==null||q==null||p===q)return;p<q?w++:l++});const T=w+l;if(T<2)continue;const g=Math.abs(w-l)/T;if(!best||g<best.g)best={g,a:a[i].it,b:a[j].it,w,l}}
+  if(best)h+=`<div class="fact">${chip(best.a,'mini')}${chip(best.b,'mini')}<div><p>⚔ Closest rivalry</p><b>${esc(best.a.name)} vs ${esc(best.b.name)}</b><br><small>Split ${best.w} to ${best.l}</small></div></div>`}
+ h+=`<div class="fact"><div><p>👥 Players</p><b>${S.subs.length}</b><br><small>${S.subs.length*S.items.length} placements</small></div></div>`;
+ return`<div class="facts">${h}</div>`}
 function tabCrowd(){
  const st=stats(),a=[...st.a].sort((x,y)=>y.score-x.score);if(!a.length)return'<div class="card"><p>Nothing to show yet.</p></div>';
  const rows=S.tiers.map((t,i)=>`<div class="row"><div class="lab" style="background:${t.color}">${esc(t.name)}</div><div class="zone">${a.filter(x=>Math.round(x.mean)===i).map(x=>chip(x.it)).join('')}</div></div>`).join('');
@@ -167,12 +236,20 @@ function tabSplit(){
  return`<div class="card"><h2>Most divisive</h2><p>${esc(a[0].it.name)} split the room the most.</p>${a.map(bar).join('')}</div>
  <div class="card"><h2>Biggest agreement</h2><p>Everyone mostly agreed on <b>${esc(a[a.length-1].it.name)}</b>.</p></div>`}
 
+function renderName(){const R=['QWERTYUIOP','ASDFGHJKL','ZXCVBNM'];
+ app.innerHTML=`<div class="mid"><h2>What is your name?</h2><p>So you can see how you compare with other players.</p><div class="nm2">${pname?esc(pname):'<span style="opacity:.3">Type your name</span>'}</div>
+ <div class="kb">${R.map((r,i)=>`<div>${[...r].map(k=>`<button data-act="nk" data-v="${k}">${k}</button>`).join('')}${i==2?'<button class="w" data-act="nk" data-v="⌫">⌫</button>':''}</div>`).join('')}<div><button data-act="nk" data-v="-">-</button><button class="sp" data-act="nk" data-v=" ">space</button><button data-act="nk" data-v=".">.</button></div></div>
+ <div class="bar" style="width:100%"><button class="btn alt" data-act="skipname">Stay anonymous</button><button class="btn sun" data-act="donename" ${pname.trim()?'':'disabled'}>Done</button></div></div>`}
+function finish(name){pend.name=name;S.subs.push(pend);save();last=pend;pend=null;tab='you';V='results';render()}
 /* ---------- PIN ---------- */
 function renderPin(){app.innerHTML=`<div class="mid"><h2>Host PIN</h2><div class="dots">${'●'.repeat(pin.length)||'&nbsp;'}</div><div class="keys">${[1,2,3,4,5,6,7,8,9,'✕',0,'⌫'].map(k=>`<button data-act="key" data-v="${k}">${k}</button>`).join('')}</div></div>`}
 
 /* ---------- admin ---------- */
 function renderAdmin(){
  app.innerHTML=`<div class="top"><h2>Host settings</h2><button class="btn sun sm" data-act="home">Save and exit</button></div><div class="scroll adm">
+ <div class="card"><h2>Saved tier lists</h2><p>Changes and player results are saved automatically into the active list. Switch lists any time.</p>
+  ${S.presets.map(p=>{const a=p.id===S.activeId,d=a?S:p.data;return`<div class="fl"><div style="flex:1"><b>${esc(p.name)}</b>${a?' (active)':''}<br><small style="color:var(--mut)">${d.items.length} options, ${d.subs.length} players</small></div>${a?'':`<button class="btn sm" data-act="load" data-id="${p.id}">Load</button>`}<button class="btn alt sm" data-act="prename" data-id="${p.id}">Rename</button><button class="x" data-act="pdel" data-id="${p.id}">Delete</button></div>`}).join('')}
+  <div class="fl" style="flex-wrap:wrap"><button class="btn alt sm" data-act="pnew">New blank list</button><button class="btn alt sm" data-act="psave">Save snapshot of current list</button><button class="btn alt sm" data-act="pcopy">Copy without results</button></div></div>
  <div class="card"><label>Tier list title</label><input data-f="title" value="${esc(S.title)}"></div>
  <div class="card"><h2>Add options</h2>
   <label>Search pictures (tap a result to add it)</label>
@@ -184,6 +261,7 @@ function renderAdmin(){
   <label>Text-only option</label><div class="fl"><input id="tn" placeholder="Name"><input id="te" placeholder="Emoji (optional)" style="max-width:150px"><button class="btn alt sm" data-act="addtext">Add</button></div></div>
  <div class="card"><h2>Options (<span id="cnt"></span>)</h2><div class="grid" id="il"></div></div>
  <div class="card"><h2>Tiers (top to bottom)</h2><div id="tl"></div><button class="btn alt sm" data-act="addtier">Add tier</button></div>
+ <div class="card"><h2>Kiosk options</h2><div class="fl"><input type="checkbox" id="an" data-f="askname" ${S.askName===false?'':'checked'}><label for="an" style="margin:0;font-size:18px;color:var(--tx)">Ask players for their name after they submit (on-screen keyboard)</label></div></div>
  <div class="card"><h2>Word filter</h2><div class="fl"><input type="checkbox" id="ff" data-f="nofilter" ${S.nofilter?'':'checked'}><label for="ff" style="margin:0;font-size:18px;color:var(--tx)">Hide inappropriate searches and options</label></div>
   <label>Extra blocked words, one per line (added to the built-in list)</label><textarea data-f="block" rows="3">${esc((S.block||[]).join('\n'))}</textarea></div>
  <div class="card"><h2>Data</h2><p>${S.subs.length} submissions saved on this device.</p><div class="fl" style="flex-wrap:wrap">
@@ -215,18 +293,22 @@ const F={
  anime:async(q,l)=>(await J(`https://api.jikan.moe/v4/anime?sfw=true&limit=${Math.min(l,25)}&q=${E(q)}`)).data.map(a=>({n:a.title_english||a.title,u:a.images.jpg.image_url})),
  char:async(q,l)=>(await J(`https://api.jikan.moe/v4/characters?limit=${Math.min(l,25)}&q=${E(q)}`)).data.filter(c=>!/questionmark/.test(c.images.jpg.image_url)).map(c=>({n:c.name.includes(', ')?c.name.split(', ').reverse().join(' '):c.name,u:c.images.jpg.image_url})),
  book:async(q,l)=>(await J(`https://openlibrary.org/search.json?fields=title,cover_i&limit=${l}&q=${E(q)}`)).docs.filter(d=>d.cover_i).map(d=>({n:d.title,u:`https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg`}))};
-const pickHTML=x=>`<div class="chip pick" data-act="pick" data-n="${esc(x.n)}" data-u="${esc(x.u)}"><img src="${esc(x.u)}" alt="${esc(x.n)}" referrerpolicy="no-referrer"><b>${esc(x.n)}</b></div>`;
+const SH={wiki:'Wiki',movie:'Movie',tv:'TV',music:'Album',anime:'Anime',char:'Character',book:'Book',photo:'Photo'};
+const nz=t=>String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]+/g,' ').replace(/(.)\1+/g,'$1').replace(/\s+/g,' ').trim();
+function rel(n,q){const a=nz(n),b=nz(q);if(!b)return 0;if(a===b)return 100;const at=a.split(' '),bt=b.split(' ');let s=a.startsWith(b)?85:a.includes(b)?70:0;
+ const hit=bt.filter(t=>at.some(w=>w===t||w.startsWith(t)||(w.length>2&&t.startsWith(w)))).length;
+ return Math.max(s,hit/bt.length*65)-Math.min(10,Math.max(0,at.length-bt.length)*1.5)}
+const pickHTML=x=>`<div class="chip pick${S.items.some(i=>i.img===x.u)?' added':''}" data-act="pick" data-n="${esc(x.n)}" data-u="${esc(x.u)}"><img src="${esc(x.u)}" alt="${esc(x.n)}" referrerpolicy="no-referrer"><b>${esc(x.n)}</b><em class="bd">${SH[x.k]}</em></div>`;
 async function search(q){
  const r=$('#sr');
  if(bad(q)){r.innerHTML='<p>That search is blocked by the word filter.</p>';return}
- const keys=srcSel==='all'?['wiki','movie','tv','music','anime','char','book','photo']:[srcSel],lim=srcSel==='all'?12:24,lab=Object.fromEntries(SRC);
- const sec=[],seen=new Set();let hid=0,pend=keys.length,fail=0,found=0;
- const paint=()=>{const any=found>0;r.innerHTML=sec.join('')+(pend?'<p>Searching…</p>':!any?`<p>${fail?"Couldn't reach the image sources. Check the kiosk's internet connection.":'No pictures found. Try another source or different wording.'}</p>`:'')+(hid&&!pend?`<p>${hid} ${hid==1?'result was':'results were'} hidden by the word filter.</p>`:'')};
+ const all=srcSel==='all',keys=all?['char','wiki','anime','tv','movie','music','book','photo']:[srcSel],lim=all?20:30;
+ const res=[],seen=new Set();let hid=0,pend=keys.length,fail=0;
+ const paint=()=>{res.sort((a,b)=>b.s-a.s||a.o-b.o);const top=res.slice(0,all?60:30);
+  r.innerHTML=(top.length?`<p>${all?'Best matches first, from every source.':''} Tap a picture to add it.</p><div class="grid sg">${top.map(pickHTML).join('')}</div>`:'')+(pend?'<p>Searching…</p>':!top.length?`<p>${fail?"Couldn't reach the image sources. Check the kiosk's internet connection.":'No pictures found. Try another source or different wording.'}</p>`:'')+(hid&&!pend?`<p>${hid} ${hid==1?'result was':'results were'} hidden by the word filter.</p>`:'')};
  paint();
- await Promise.all(keys.map(async(k,i)=>{
-  try{const ok=(await F[k](q,lim)).filter(x=>{if(!x.n||!x.u||seen.has(x.u))return false;if(bad(x.n)){hid++;return false}seen.add(x.u);return true}).slice(0,lim);
-   found+=ok.length;sec[i]=`${srcSel==='all'?`<h3>${lab[k]} (${ok.length})</h3>`:''}${ok.length?`<div class="grid sg">${ok.map(pickHTML).join('')}</div>`:srcSel==='all'?'<p>No results.</p>':''}`}
-  catch(e){fail++;if(srcSel==='all')sec[i]=`<h3>${lab[k]}</h3><p>Couldn't load.</p>`}
+ await Promise.all(keys.map(async(k,o)=>{
+  try{(await F[k](q,lim)).forEach(x=>{if(!x.n||!x.u||seen.has(x.u))return;if(bad(x.n)){hid++;return}seen.add(x.u);res.push({...x,k,o,s:rel(x.n,q)})})}catch(e){fail++}
   pend--;paint()}))}
 const shrink=f=>new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,320/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.8))};im.onerror=()=>res(null);im.src=r.result};r.readAsDataURL(f)});
 
@@ -250,7 +332,17 @@ app.addEventListener('click',async e=>{
  case'home':V='home';last=null;return render();
  case'crowd':last=null;tab='crowd';V='results';return render();
  case'tab':tab=b.dataset.v;return render();
- case'submit':{const s={t:Date.now(),p:{...sess}};S.subs.push(s);save();last=s;tab='you';V='results';return render()}
+ case'submit':pend={t:Date.now(),p:{...sess}};if(S.askName===false)return finish('');pname='';V='name';return render();
+ case'nk':{const v=b.dataset.v;if(v==='⌫')pname=pname.slice(0,-1);else if(pname.length<16)pname+=/[A-Z]/.test(v)&&pname&&!/[ \-]$/.test(pname)?v.toLowerCase():v;return renderName()}
+ case'skipname':return finish('');
+ case'donename':{const n=pname.trim();if(bad(n)){pname='';toast('Please pick a different name');return renderName()}return finish(n)}
+ case'h2h':if(!h2h.includes(id))h2h=[h2h[h2h.length-1],id].filter(Boolean);return renderResults(true);
+ case'load':loadPreset(id);return renderAdmin();
+ case'prename':{const p=S.presets.find(x=>x.id===id),n=prompt('Rename this list:',p.name);if(n&&n.trim()){p.name=n.trim().slice(0,40);save();renderAdmin()}return}
+ case'pdel':{if(S.presets.length<2)return toast('Keep at least one list');if(!confirm('Delete this saved list and all its results?'))return;S.presets=S.presets.filter(x=>x.id!==id);if(id===S.activeId)loadPreset(S.presets[0].id);save();return renderAdmin()}
+ case'psave':case'pcopy':case'pnew':{const k=b.dataset.act,n=prompt('Name for the new saved list:',k==='pnew'?'New list':S.title);if(!n||!n.trim())return;sync(S);const cur=S.presets.find(x=>x.id===S.activeId).data;
+  const d=k==='pnew'?{title:n.trim(),tiers:defaults().tiers,items:[],subs:[]}:JSON.parse(JSON.stringify(cur));if(k==='pcopy')d.subs=[];
+  const p={id:uid(),name:n.trim().slice(0,40),data:d};S.presets.push(p);if(k==='pnew')loadPreset(p.id);else save();toast(k==='pnew'?'New list created and loaded':'Saved. Load it from the list above.');return renderAdmin()}
  case'admin':pin='';V='pin';return render();
  case'key':{const v=b.dataset.v;if(v==='✕'){V='home';return render()}pin=v==='⌫'?pin.slice(0,-1):pin+v;if(pin===String(S.pin)){V='admin';return render()}if(pin.length>=String(S.pin).length){pin='';toast('Wrong PIN')}return renderPin()}
  case'search':{const q=$('#q').value.trim();if(q)search(q);return}
@@ -263,24 +355,25 @@ app.addEventListener('click',async e=>{
  case'delt':if(confirm('Remove this tier? Past results for it will be ignored.')){S.tiers=S.tiers.filter(t=>t.id!==id);save();tiersUI()}return;
  case'mv':{const i=S.tiers.findIndex(t=>t.id===id),j=i+ +b.dataset.d;[S.tiers[i],S.tiers[j]]=[S.tiers[j],S.tiers[i]];save();return tiersUI()}
  case'clear':if(confirm('Delete all submissions?')){S.subs=[];save();renderAdmin()}return;
- case'reset':if(confirm('Reset everything, including options and tiers?')){S=defaults();save();renderAdmin()}return;
+ case'reset':if(confirm('Reset everything, including options and tiers?')){S=hydrate(defaults());save();renderAdmin()}return;
  case'newpin':{const p=prompt('New PIN (digits only):');if(p&&/^\d{3,8}$/.test(p)){S.pin=p;save();toast('PIN changed')}else if(p)toast('Use 3 to 8 digits');return}
- case'export':{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='tier-list-backup.json';a.click();return}
+ case'export':{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(persist())],{type:'application/json'}));a.download='tier-list-backup.json';a.click();return}
  }});
 app.addEventListener('change',async e=>{
  const t=e.target;
  if(t.id==='up'){for(const f of t.files){const d=await shrink(f);if(d)addItem(f.name.replace(/\.[^.]+$/,'').replace(/[-_]+/g,' '),d)}t.value='';return}
- if(t.id==='imp'){try{const d=JSON.parse(await t.files[0].text());if(!d.tiers||!d.items)throw 0;S=d;S.subs=S.subs||[];S.pin=S.pin||'1234';save();renderAdmin();toast('Backup imported')}catch(_){toast('That file is not a valid backup')}return}
+ if(t.id==='imp'){try{const d=JSON.parse(await t.files[0].text());if(!d.presets&&!(d.tiers&&d.items))throw 0;S=hydrate(d);save();renderAdmin();toast('Backup imported')}catch(_){toast('That file is not a valid backup')}return}
  const f=t.dataset.f;if(!f)return;const id=t.dataset.id;
  if((f==='title'||f==='iname')&&bad(t.value)){toast('Blocked by the word filter');t.value=f==='title'?S.title:item(id).name;return}
  if(f==='title')S.title=t.value.trim()||'Rank It!';
  if(f==='iname')item(id).name=t.value.trim()||'Untitled';
  if(f==='nofilter')S.nofilter=!t.checked;
+ if(f==='askname')S.askName=t.checked;
  if(f==='block')S.block=t.value.split(/[\n,]+/).map(x=>x.trim().toLowerCase()).filter(Boolean);
  if(f==='tname')S.tiers.find(x=>x.id===id).name=t.value.trim()||'?';
  if(f==='tcolor')S.tiers.find(x=>x.id===id).color=t.value;
  save();if(f==='iname')itemsUI()});
 app.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='q')search(e.target.value.trim())});
-setInterval(()=>{if(['play','results','pin'].includes(V)&&Date.now()-idle>120000){V='home';last=null;render()}},5000);
+setInterval(()=>{if(['play','results','pin','name'].includes(V)&&Date.now()-idle>120000){V='home';last=null;render()}},5000);
 render();
 </script></body></html>
